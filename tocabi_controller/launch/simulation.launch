@@ -1,5 +1,5 @@
 <launch>
-    <arg name="hand" default="true" />
+    <arg name="hand" default="false" />
     <arg name="gui" default="true" />
     <arg name="controller" default="true" />
     <arg name="log" default="false"/>
