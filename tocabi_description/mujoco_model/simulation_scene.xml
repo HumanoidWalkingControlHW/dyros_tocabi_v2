@@ -1,6 +1,5 @@
 <mujoco model="scene">
     <option timestep='0.0005' iterations="50" tolerance="1e-5" solver="Newton" jacobian="dense" cone="elliptic" noslip_iterations="30" noslip_tolerance="1e-5"/>
-    <?option gravity="0 0 0"/?>
     <size njmax="8000" nconmax="4000"/>
     <compiler angle="radian" meshdir="../meshes/" balanceinertia="true"/>
     <default>
@@ -18,7 +17,7 @@
             <site type="cylinder" size="0.005 0.005" group="4" rgba=".1 .1 .9 1"/>
         </default>
         <default class="shg20_100_2so">
-            <joint damping="0.0248" frictionloss="0.9"/>
+            <joint damping="0.0248" frictionloss="9.9"/>
         </default>  <!-- rated torque = 52 Nm -->
 
         <default class="shd20_100_2sh">

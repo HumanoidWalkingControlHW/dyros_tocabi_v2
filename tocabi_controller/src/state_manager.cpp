@@ -366,7 +366,7 @@ void *StateManager::StateThread()
 
 void *StateManager::LoggerThread()
 {
-    bool activateLogger = false;
+      bool activateLogger = false;
     bool startLogger = false;
 
     dc_.nh.getParam("/tocabi_controller/log", activateLogger);
@@ -393,8 +393,6 @@ void *StateManager::LoggerThread()
     auto tm_ = *std::localtime(&t_);
     start_time << std::put_time(&tm_, "%Y%m%d-%H%M%S");
 
-    std::cout << "Logger : log folder : " << log_folder << "  Start Time : " << start_time.str() << std::endl;
-
     std::string torqueLogFile = "torque_elmo_log";
     std::string ecatStatusFile = "ecat_status_log";
     std::string torqueclogFile = "torque_command_log";
@@ -405,6 +403,47 @@ void *StateManager::LoggerThread()
     std::string posDesiredLogFile = "pos_des_log";
     std::string velDesiredLogFile = "vel_des_log";
     std::string sensorLogFile = "sensor_log";
+
+    bool switch_torqueLog = false;        // int
+    bool switch_torqueCommandLog = false; //
+    bool switch_torqueActualLog = false;  //
+    bool switch_maskLog = false;
+    bool switch_ecatStatusLog = false;
+    bool switch_posLog = false;
+    bool switch_velLog = false;
+    bool switch_posDesiredLog = false;
+    bool switch_velDesiredLog = false;
+    bool switch_sensorLog = false;
+
+    int record_seconds = 60;
+    dc_.nh.getParam("/logger_switch/torqueLog", switch_torqueLog);
+    dc_.nh.getParam("/logger_switch/torqueCommandLog", switch_torqueCommandLog);
+    dc_.nh.getParam("/logger_switch/torqueActualLog", switch_torqueActualLog);
+    dc_.nh.getParam("/logger_switch/maskLog", switch_maskLog);
+    dc_.nh.getParam("/logger_switch/ecatStatusLog", switch_ecatStatusLog);
+    dc_.nh.getParam("/logger_switch/posLog", switch_posLog);
+    dc_.nh.getParam("/logger_switch/velLog", switch_velLog);
+    dc_.nh.getParam("/logger_switch/posDesiredLog", switch_posDesiredLog);
+    dc_.nh.getParam("/logger_switch/velDesiredLog", switch_velDesiredLog);
+    dc_.nh.getParam("/logger_switch/sensorLog", switch_sensorLog);
+    dc_.nh.getParam("/logger_switch/record_seconds", record_seconds);
+
+    if (activateLogger)
+    {
+        std::cout << "Logger : log folder : " << log_folder << "  Start Time : " << start_time.str() << std::endl;
+
+        std::cout << "Logger : ON | record interval : " << record_seconds << " s "<< std::endl
+                  << " | torque : " << switch_torqueLog 
+                  << " | toruqeCommand : " << switch_torqueCommandLog 
+                  << " | torqueActual : " << switch_torqueActualLog << std::endl
+                  << " | mask : " << switch_maskLog 
+                  << " | ecatStatus : " << switch_ecatStatusLog
+                  << " | posLog : " << switch_posLog << std::endl
+                  << " | velLog : " << switch_velLog 
+                  << " | posDesired : " << switch_posDesiredLog
+                  << " | velDesired : " << switch_velDesiredLog 
+                  << " | sensorLog : " << switch_sensorLog << std::endl;
+    }
 
     ofstream torqueLog;
     ofstream torqueCommandLog;
@@ -430,14 +469,12 @@ void *StateManager::LoggerThread()
 
     clock_gettime(CLOCK_MONOTONIC, &ts);
 
-    int record_seconds = 60;
-
     int record_tick = record_seconds * 2000;
 
     long current_time = rd_gl_.control_time_us_;
 
-    std::string apd_;
-    std::string cpd_;
+    std::string current_logging_folder;
+    std::string previous_logging_folder;
 
     while (true)
     {
@@ -445,22 +482,32 @@ void *StateManager::LoggerThread()
         {
             if (s_count > 0)
             {
-                torqueLog.close();
-                torqueCommandLog.close();
-                torqueActualLog.close();
-                maskLog.close();
-                ecatStatusLog.close();
-                posLog.close();
-                posDesiredLog.close();
-                velLog.close();
-                velDesiredLog.close();
-                sensorLog.close();
+                if (switch_torqueLog)
+                    torqueLog.close();
+                if (switch_torqueCommandLog)
+                    torqueCommandLog.close();
+                if (switch_torqueActualLog)
+                    torqueActualLog.close();
+                if (switch_maskLog)
+                    maskLog.close();
+                if (switch_ecatStatusLog)
+                    ecatStatusLog.close();
+                if (switch_posLog)
+                    posLog.close();
+                if (switch_posDesiredLog)
+                    posDesiredLog.close();
+                if (switch_velDesiredLog)
+                    velDesiredLog.close();
+                if (switch_velLog)
+                    velLog.close();
+                if (switch_sensorLog)
+                    sensorLog.close();
 
-                std::stringstream sstr;
+                // std::stringstream sstr;
 
-                sstr << " zip -j -q " << log_folder << "log_" << start_time.str() << "_" << std::setfill('0') << std::setw(3) << s_count << std::setw(0) << ".zip " << log_folder << apd_ << "* &";
+                // sstr << " zip -j -q " << log_folder << "log_" << start_time.str() << "_" << std::setfill('0') << std::setw(3) << s_count << std::setw(0) << ".zip " << log_folder << apd_ << "* &";
 
-                int status = system(sstr.str().c_str());
+                // int status = system(sstr.str().c_str());
                 // std::cout << " log file compressed : " << s_count << std::endl;
             }
 
@@ -509,7 +556,14 @@ void *StateManager::LoggerThread()
             ts.tv_sec++;
         }
 
-        if (activateLogger && (!startLogger))
+        if (dc_.logdata_start)
+        {
+            activateLogger = true;
+            dc_.logdata_start = false;
+            std::cout << "Start Logging Data" << std::endl;
+        }
+
+        if (activateLogger && (!startLogger)) // Start Logging if activateLogger is true and upper and lower ecat controller is online
         {
             if (dc_.tc_shm_->controlModeLower && dc_.tc_shm_->controlModeUpper)
             {
@@ -539,233 +593,347 @@ void *StateManager::LoggerThread()
 
                 if (s_count % 2 == 0)
                 {
-                    apd_ = "0/";
-                    cpd_ = "1/";
+                    if (s_count == 0)
+                    {
+                        std::stringstream create_dir_str;
+
+                        create_dir_str << "mkdir " << log_folder << "/" << start_time.str();
+                        int status = system(create_dir_str.str().c_str());
+                    }
+
+                    std::stringstream create_dir_str2;
+
+                    previous_logging_folder = log_folder + "/" + start_time.str() + "/" + std::to_string(s_count - 1) + "/";
+                    current_logging_folder = log_folder + "/" + start_time.str() + "/" + std::to_string(s_count) + "/";
+
+                    create_dir_str2 << "mkdir " << current_logging_folder;
+
+                    int status = system(create_dir_str2.str().c_str());
+
+                    // apd_ = "0/";
+                    // cpd_ = "1/";
                     std::cout << "LOGGER : Open Log Files : " << s_count << " " << t_str << std::endl;
                 }
                 else
                 {
-                    apd_ = "1/";
-                    cpd_ = "0/";
+                    std::stringstream create_dir_str2;
+
+                    previous_logging_folder = log_folder + "/" + start_time.str() + "/" + std::to_string(s_count - 1) + "/";
+                    current_logging_folder = log_folder + "/" + start_time.str() + "/" + std::to_string(s_count) + "/";
+
+                    create_dir_str2 << "mkdir " << current_logging_folder;
+                    int status = system(create_dir_str2.str().c_str());
+
+                    // apd_ = "1/";
+                    // cpd_ = "0/";
                     std::cout << "LOGGER : Open Log Files : " << s_count << " " << t_str << std::endl;
                 }
 
                 if (s_count > 0)
                 {
-                    torqueLog.close();
-                    torqueCommandLog.close();
-                    torqueActualLog.close();
-                    maskLog.close();
-                    ecatStatusLog.close();
-                    posLog.close();
-                    posDesiredLog.close();
-                    velDesiredLog.close();
-                    velLog.close();
-                    sensorLog.close();
+                    if (switch_torqueLog)
+                        torqueLog.close();
+                    if (switch_torqueCommandLog)
+                        torqueCommandLog.close();
+                    if (switch_torqueActualLog)
+                        torqueActualLog.close();
+                    if (switch_maskLog)
+                        maskLog.close();
+                    if (switch_ecatStatusLog)
+                        ecatStatusLog.close();
+                    if (switch_posLog)
+                        posLog.close();
+                    if (switch_posDesiredLog)
+                        posDesiredLog.close();
+                    if (switch_velDesiredLog)
+                        velDesiredLog.close();
+                    if (switch_velLog)
+                        velLog.close();
+                    if (switch_sensorLog)
+                        sensorLog.close();
 
                     std::stringstream sstr;
-                    sstr << " zip -j -q " << log_folder << "log_" << start_time.str() << "_" << std::setfill('0') << std::setw(3) << s_count << std::setw(0) << ".zip " << log_folder << cpd_ << "* &";
+                    sstr << "{ zip -j -q " << log_folder << "/" << start_time.str() << "/"
+                         << "log_" << std::setfill('0') << std::setw(3) << s_count - 1 << std::setw(0) << ".zip " << previous_logging_folder << "*; rm -rf " << previous_logging_folder << "; }&";
+
                     int status = system(sstr.str().c_str());
-
-                    // std::cout << " log file compressed : " << s_count << std::endl;
                 }
 
-                torqueLog.open((log_folder + apd_ + torqueLogFile).c_str());
-                torqueLog.fill(' ');
-                torqueLog << t_str << " Direct command input(CNT) to elmo" << std::endl;
-                torqueLog << "time ";
-                for (int i = 0; i < MODEL_DOF_VIRTUAL; i++)
+                if (switch_torqueLog)
                 {
-                    torqueLog << "t" + to_string(i) << " ";
+                    torqueLog.open((current_logging_folder + torqueLogFile).c_str());
+                    torqueLog.fill(' ');
+                    // torqueLog << t_str << " Direct command input(CNT) to elmo" << std::endl;
+                    torqueLog << "time ";
+                    for (int i = 0; i < MODEL_DOF_VIRTUAL; i++)
+                    {
+                        torqueLog << "t" + to_string(i) << " ";
+                    }
+                    torqueLog << std::endl;
                 }
-                torqueLog << std::endl;
 
-                torqueCommandLog.open((log_folder + apd_ + torqueclogFile).c_str());
-                torqueCommandLog << t_str << " torque command(NM) to elmo" << std::endl;
-                torqueCommandLog << "time ";
-                for (int i = 0; i < MODEL_DOF_VIRTUAL; i++)
+                if (switch_torqueCommandLog)
                 {
-                    torqueCommandLog << "tcom" + to_string(i) << " ";
+                    torqueCommandLog.open((current_logging_folder + torqueclogFile).c_str());
+                    // torqueCommandLog << t_str << " torque command(NM) to elmo" << std::endl;
+                    torqueCommandLog << "time ";
+                    for (int i = 0; i < MODEL_DOF_VIRTUAL; i++)
+                    {
+                        torqueCommandLog << "tcom" + to_string(i) << " ";
+                    }
+                    torqueCommandLog << std::endl;
                 }
-                torqueCommandLog << std::endl;
 
-                torqueActualLog.open((log_folder + apd_ + torqueActualLogFile).c_str());
-                torqueActualLog << t_str << " Actual torque from elmo" << std::endl;
-                torqueActualLog << "time ";
-                for (int i = 0; i < MODEL_DOF_VIRTUAL; i++)
+                if (switch_torqueActualLog)
                 {
-                    torqueActualLog << "treal" + to_string(i) << " ";
+
+                    torqueActualLog.open((current_logging_folder + torqueActualLogFile).c_str());
+                    // torqueActualLog << t_str << " Actual torque from elmo" << std::endl;
+                    torqueActualLog << "time ";
+                    for (int i = 0; i < MODEL_DOF_VIRTUAL; i++)
+                    {
+                        torqueActualLog << "treal" + to_string(i) << " ";
+                    }
+                    torqueActualLog << std::endl;
                 }
-                torqueActualLog << std::endl;
 
-                maskLog.open((log_folder + apd_ + maskLogFile).c_str());
-
-                ecatStatusLog.open((log_folder + apd_ + ecatStatusFile).c_str());
-
-                posLog.open((log_folder + apd_ + posLogFile).c_str());
-                posLog << t_str << std::endl;
-                posLog << "time ";
-                for (int i = 0; i < MODEL_DOF_VIRTUAL; i++)
+                if (switch_maskLog)
                 {
-                    posLog << "q" + to_string(i) << " ";
+                    maskLog.open((current_logging_folder + maskLogFile).c_str());
                 }
-                posLog << std::endl;
 
-                posDesiredLog.open((log_folder + apd_ + posDesiredLogFile).c_str());
-                posDesiredLog << t_str << std::endl;
-                posDesiredLog << "time ";
-                for (int i = 0; i < MODEL_DOF_VIRTUAL; i++)
+                if (switch_ecatStatusLog)
                 {
-                    posDesiredLog << "qdes" + to_string(i) << " ";
+                    ecatStatusLog.open((current_logging_folder + ecatStatusFile).c_str());
                 }
-                posDesiredLog << std::endl;
 
-                velDesiredLog.open((log_folder + apd_ + velDesiredLogFile).c_str());
-                velDesiredLog << t_str << std::endl;
-                velDesiredLog << "time ";
-                for (int i = 0; i < MODEL_DOF_VIRTUAL; i++)
+                if (switch_posLog)
                 {
-                    velDesiredLog << "qddes" + to_string(i) << " ";
+                    posLog.open((current_logging_folder + posLogFile).c_str());
+                    // posLog << t_str << std::endl;
+                    posLog << "time ";
+                    for (int i = 0; i < MODEL_DOF_VIRTUAL; i++)
+                    {
+                        posLog << "q" + to_string(i) << " ";
+                    }
+                    posLog << std::endl;
                 }
-                velDesiredLog << std::endl;
 
-                velLog.open((log_folder + apd_ + velLogFile).c_str());
-                velLog << t_str << std::endl;
-                velLog << "time ";
-                for (int i = 0; i < MODEL_DOF_VIRTUAL; i++)
+                if (switch_posDesiredLog)
                 {
-                    velLog << "qdot" + to_string(i) << " ";
+                    posDesiredLog.open((current_logging_folder + posDesiredLogFile).c_str());
+                    // posDesiredLog << t_str << std::endl;
+                    posDesiredLog << "time ";
+                    for (int i = 0; i < MODEL_DOF_VIRTUAL; i++)
+                    {
+                        posDesiredLog << "qdes" + to_string(i) << " ";
+                    }
+                    posDesiredLog << std::endl;
                 }
-                velLog << std::endl;
 
-                sensorLog.open((log_folder + apd_ + sensorLogFile).c_str());
-                sensorLog << t_str << std::endl;
-                sensorLog << "time lfx lfy lfz ltx lty ltz rfx rfy rfz rtx rty rtz imu_r imu_p imu_y w_r w_y w_z a_x a_y a_z" << std::endl;
+                if (switch_velDesiredLog)
+                {
+
+                    velDesiredLog.open((current_logging_folder + velDesiredLogFile).c_str());
+                    // velDesiredLog << t_str << std::endl;
+                    velDesiredLog << "time ";
+                    for (int i = 0; i < MODEL_DOF_VIRTUAL; i++)
+                    {
+                        velDesiredLog << "qddes" + to_string(i) << " ";
+                    }
+                    velDesiredLog << std::endl;
+                }
+
+                if (switch_velLog)
+                {
+                    velLog.open((current_logging_folder + velLogFile).c_str());
+                    // velLog << t_str << std::endl;
+                    velLog << "time ";
+                    for (int i = 0; i < MODEL_DOF_VIRTUAL; i++)
+                    {
+                        velLog << "qdot" + to_string(i) << " ";
+                    }
+                    velLog << std::endl;
+                }
+
+                if (switch_sensorLog)
+                {
+                    sensorLog.open((current_logging_folder + sensorLogFile).c_str());
+                    // sensorLog << t_str << std::endl;
+                    sensorLog << "time lfx lfy lfz ltx lty ltz rfx rfy rfz rtx rty rtz imu_r imu_p imu_y w_r w_y w_z a_x a_y a_z" << std::endl;
+                }
+
                 s_count++;
             }
             log_count++;
 
-            torqueLog << std::fixed << std::setprecision(6) << local_control_time / 1000000.0 << " ";
-            for (int i = 0; i < MODEL_DOF; i++)
+            if (switch_torqueLog)
             {
-                torqueLog << (int)dc_.tc_shm_->elmo_torque[i] << " ";
-            }
-            torqueLog << std::endl;
-
-            torqueCommandLog << std::fixed << std::setprecision(6) << local_control_time / 1000000.0 << " ";
-            for (int i = 0; i < MODEL_DOF; i++)
-            {
-                torqueCommandLog << dc_.torque_command[i] << " ";
-            }
-            torqueCommandLog << std::endl;
-
-            posLog << std::fixed << std::setprecision(6) << local_control_time / 1000000.0 << " ";
-            for (int i = 0; i < MODEL_DOF_QVIRTUAL; i++)
-            {
-                posLog << rd_gl_.q_virtual_[i] << " ";
-            }
-            posLog << std::endl;
-
-            posDesiredLog << std::fixed << std::setprecision(6) << local_control_time / 1000000.0 << " ";
-            for (int i = 0; i < MODEL_DOF; i++)
-            {
-                posDesiredLog << rd_gl_.q_desired[i] << " ";
-            }
-            posDesiredLog << std::endl;
-
-            velDesiredLog << std::fixed << std::setprecision(6) << local_control_time / 1000000.0 << " ";
-            for (int i = 0; i < MODEL_DOF; i++)
-            {
-                velDesiredLog << rd_gl_.q_dot_desired[i] << " ";
-            }
-            velDesiredLog << std::endl;
-
-            velLog << std::fixed << std::setprecision(6) << local_control_time / 1000000.0 << " ";
-            for (int i = 0; i < MODEL_DOF_VIRTUAL; i++)
-            {
-                velLog << q_dot_virtual_[i] << " ";
-            }
-            velLog << std::endl;
-
-            torqueActualLog << std::fixed << std::setprecision(6) << local_control_time / 1000000.0 << " ";
-            for (int i = 0; i < MODEL_DOF; i++)
-            {
-                torqueActualLog << dc_.tc_shm_->torqueActual[i] << " ";
-            }
-            torqueActualLog << std::endl;
-
-            maskLog << std::fixed << std::setprecision(6) << local_control_time / 1000000.0 << " ";
-            for (int i = 0; i < 10; i++)
-            {
-                maskLog << std::setfill(' ') << std::setw(6) << (int)dc_.tc_shm_->e1_m[i] << " ";
-            }
-            for (int i = 0; i < 10; i++)
-            {
-                maskLog << std::setfill(' ') << std::setw(6) << (int)dc_.tc_shm_->e2_m[i] << " ";
-            }
-            maskLog << std::endl;
-
-            sensorLog << std::fixed << std::setprecision(6) << local_control_time / 1000000.0 << " ";
-
-            /*   for (int i = 0; i < 6; i++)
-               {
-                   sensorLog << rd_gl_.LF_CF_FT(i) << " ";
-               }
-               for (int i = 0; i < 6; i++)
-               {
-                   sensorLog << rd_gl_.RF_CF_FT(i) << " ";
-               }*/
-
-            for (int i = 0; i < 6; i++)
-            {
-                sensorLog << rd_gl_.LH_CF_FT(i) << " ";
-            }
-            for (int i = 0; i < 6; i++)
-            {
-                sensorLog << rd_gl_.RH_CF_FT(i) << " ";
-            }
-
-            sensorLog << rd_gl_.roll << " " << rd_gl_.pitch << " " << rd_gl_.yaw << " ";
-            sensorLog << rd_gl_.imu_ang_vel(0) << " " << rd_gl_.imu_ang_vel(1) << " " << rd_gl_.imu_ang_vel(2) << " ";
-            sensorLog << rd_gl_.imu_lin_acc(0) << " " << rd_gl_.imu_lin_acc(1) << " " << rd_gl_.imu_lin_acc(2) << " ";
-            sensorLog << std::endl;
-
-            bool change = false;
-
-            static int elmoStatus_before[MODEL_DOF];
-            int elmoStatus_now[MODEL_DOF];
-
-            std::copy(dc_.tc_shm_->ecat_status, dc_.tc_shm_->ecat_status + MODEL_DOF, elmoStatus_now);
-
-            for (int i = 0; i < MODEL_DOF; i++)
-            {
-                if (elmoStatus_now[i] != elmoStatus_before[i])
-                    change = true;
-            }
-
-            if (change)
-            {
-                ecatStatusLog << (float)rd_gl_.control_time_us_ / 1000000.0 << "\t ";
+                torqueLog << std::fixed << std::setprecision(6) << local_control_time / 1000000.0 << " ";
                 for (int i = 0; i < MODEL_DOF; i++)
                 {
-                    ecatStatusLog << elmoStatus_now[i] << "  ";
+                    torqueLog << (int)dc_.tc_shm_->elmo_torque[i] << " ";
                 }
-                ecatStatusLog << std::endl;
+                torqueLog << std::endl;
             }
 
-            std::copy(elmoStatus_now, elmoStatus_now + MODEL_DOF, elmoStatus_before);
+            if (switch_torqueCommandLog)
+            {
+
+                torqueCommandLog << std::fixed << std::setprecision(6) << local_control_time / 1000000.0 << " ";
+                for (int i = 0; i < MODEL_DOF; i++)
+                {
+                    torqueCommandLog << dc_.torque_command[i] << " ";
+                }
+                torqueCommandLog << std::endl;
+            }
+
+            if (switch_posLog)
+            {
+                posLog << std::fixed << std::setprecision(6) << local_control_time / 1000000.0 << " ";
+                for (int i = 0; i < MODEL_DOF_QVIRTUAL; i++)
+                {
+                    posLog << rd_gl_.q_virtual_[i] << " ";
+                }
+                posLog << std::endl;
+            }
+
+            if (switch_posDesiredLog)
+            {
+
+                posDesiredLog << std::fixed << std::setprecision(6) << local_control_time / 1000000.0 << " ";
+                for (int i = 0; i < MODEL_DOF; i++)
+                {
+                    posDesiredLog << rd_gl_.q_desired[i] << " ";
+                }
+                posDesiredLog << std::endl;
+            }
+
+            if (switch_velDesiredLog)
+            {
+
+                velDesiredLog << std::fixed << std::setprecision(6) << local_control_time / 1000000.0 << " ";
+                for (int i = 0; i < MODEL_DOF; i++)
+                {
+                    velDesiredLog << rd_gl_.q_dot_desired[i] << " ";
+                }
+                velDesiredLog << std::endl;
+            }
+
+            if (switch_velLog)
+            {
+                velLog << std::fixed << std::setprecision(6) << local_control_time / 1000000.0 << " ";
+                for (int i = 0; i < MODEL_DOF_VIRTUAL; i++)
+                {
+                    velLog << q_dot_virtual_[i] << " ";
+                }
+                velLog << std::endl;
+            }
+
+            if (switch_torqueActualLog)
+            {
+                torqueActualLog << std::fixed << std::setprecision(6) << local_control_time / 1000000.0 << " ";
+                for (int i = 0; i < MODEL_DOF; i++)
+                {
+                    torqueActualLog << dc_.tc_shm_->torqueActual[i] << " ";
+                }
+                torqueActualLog << std::endl;
+            }
+
+            if (switch_maskLog)
+            {
+
+                maskLog << std::fixed << std::setprecision(6) << local_control_time / 1000000.0 << " ";
+                for (int i = 0; i < 10; i++)
+                {
+                    maskLog << std::setfill(' ') << std::setw(6) << (int)dc_.tc_shm_->e1_m[i] << " ";
+                }
+                for (int i = 0; i < 10; i++)
+                {
+                    maskLog << std::setfill(' ') << std::setw(6) << (int)dc_.tc_shm_->e2_m[i] << " ";
+                }
+                maskLog << std::endl;
+            }
+
+            if (switch_sensorLog)
+            {
+                sensorLog << std::fixed << std::setprecision(6) << local_control_time / 1000000.0 << " ";
+
+                /*   for (int i = 0; i < 6; i++)
+                   {
+                       sensorLog << rd_gl_.LF_CF_FT(i) << " ";
+                   }
+                   for (int i = 0; i < 6; i++)
+                   {
+                       sensorLog << rd_gl_.RF_CF_FT(i) << " ";
+                   }*/
+
+                for (int i = 0; i < 6; i++)
+                {
+                    sensorLog << rd_gl_.LH_CF_FT(i) << " ";
+                }
+                for (int i = 0; i < 6; i++)
+                {
+                    sensorLog << rd_gl_.RH_CF_FT(i) << " ";
+                }
+
+                sensorLog << rd_gl_.roll << " " << rd_gl_.pitch << " " << rd_gl_.yaw << " ";
+                sensorLog << rd_gl_.imu_ang_vel(0) << " " << rd_gl_.imu_ang_vel(1) << " " << rd_gl_.imu_ang_vel(2) << " ";
+                sensorLog << rd_gl_.imu_lin_acc(0) << " " << rd_gl_.imu_lin_acc(1) << " " << rd_gl_.imu_lin_acc(2) << " ";
+                sensorLog << std::endl;
+            }
+
+            if (switch_ecatStatusLog)
+            {
+
+                bool change = false;
+
+                static int elmoStatus_before[MODEL_DOF];
+                int elmoStatus_now[MODEL_DOF];
+
+                std::copy(dc_.tc_shm_->ecat_status, dc_.tc_shm_->ecat_status + MODEL_DOF, elmoStatus_now);
+
+                for (int i = 0; i < MODEL_DOF; i++)
+                {
+                    if (elmoStatus_now[i] != elmoStatus_before[i])
+                        change = true;
+                }
+
+                if (change)
+                {
+                    ecatStatusLog << (float)rd_gl_.control_time_us_ / 1000000.0 << "\t ";
+                    for (int i = 0; i < MODEL_DOF; i++)
+                    {
+                        ecatStatusLog << elmoStatus_now[i] << "  ";
+                    }
+                    ecatStatusLog << std::endl;
+                }
+
+                std::copy(elmoStatus_now, elmoStatus_now + MODEL_DOF, elmoStatus_before);
+            }
         }
     }
 
-    ecatStatusLog.close();
-    torqueLog.close();
-    torqueCommandLog.close();
-    torqueActualLog.close();
-    maskLog.close();
-    posLog.close();
-    velDesiredLog.close();
-    posDesiredLog.close();
-    velLog.close();
+    if (switch_torqueLog)
+        torqueLog.close();
+    if (switch_torqueCommandLog)
+        torqueCommandLog.close();
+    if (switch_torqueActualLog)
+        torqueActualLog.close();
+    if (switch_maskLog)
+        maskLog.close();
+    if (switch_ecatStatusLog)
+        ecatStatusLog.close();
+    if (switch_posLog)
+        posLog.close();
+    if (switch_posDesiredLog)
+        posDesiredLog.close();
+    if (switch_velDesiredLog)
+        velDesiredLog.close();
+    if (switch_velLog)
+        velLog.close();
+    if (switch_sensorLog)
+        sensorLog.close();
 
     std::cout << "Logger : END!" << std::endl;
     return (void *)NULL;
@@ -1347,13 +1515,13 @@ void StateManager::GetSensorData()
          handft_reinit_l = 0;
      }*/
 
-    if(dc_.fthandcalibreset)
+    if (dc_.fthandcalibreset)
     {
         LH_CALIB.setZero();
         RH_CALIB.setZero();
         handFtCalib_mode = 0;
         dc_.fthandcalibreset = false;
-	hand_calib_init = false;
+        hand_calib_init = false;
     }
 
     if (dc_.handft_calib_signal_)
@@ -1439,9 +1607,9 @@ void StateManager::GetSensorData()
         ft_calibd_l.segment<3>(0) = ft_calibd_l.segment<3>(0) + L_hand_Ready_temp;
 
         //\tick_ft++;
-        //if (tick_ft % 3000 == 0)
-            std::cout << "STATUS : FT HAND BIAS "
-                      << "R_hand_Ready_temp : " << RH_ori.transpose() << " L_hand_Ready_temp : " << LH_ori.transpose() << std::endl;
+        // if (tick_ft % 3000 == 0)
+        std::cout << "STATUS : FT HAND BIAS "
+                  << "R_hand_Ready_temp : " << RH_ori.transpose() << " L_hand_Ready_temp : " << LH_ori.transpose() << std::endl;
 
         dc_.fthandzeroSwtich = false;
     }
@@ -2031,7 +2199,7 @@ void StateManager::StateEstimate()
         }
         else
         {
-            //std::cout << "whatthefuck" << std::endl;
+            std::cout << "whatthefuck" << std::endl;
         }
 
         // if (dc.single_foot_only)
@@ -2769,6 +2937,14 @@ void StateManager::GuiCommandCallback(const std_msgs::StringConstPtr &msg)
     else if (msg->data == "forceload")
     {
         dc_.tc_shm_->force_load_saved_signal = true;
+    }
+    else if (msg->data == "startlog")
+    {
+        dc_.logdata_start = true;
+    }
+    else if (msg->data == "stoplog")
+    {
+        dc_.logdata_stop = true;
     }
     else if (msg->data == "qdot_est")
     {

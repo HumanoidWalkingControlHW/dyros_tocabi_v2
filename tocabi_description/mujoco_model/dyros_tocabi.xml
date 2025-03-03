@@ -1,10 +1,6 @@
 <mujoco model="dyros_tocabi">
     <include file="simulation_scene.xml"/>
     
-    <default class="object1">
-        <geom type="box" size="0.35 .15 0.049" rgba="0.4 0.4 0.4 1"  />
-    </default>
-        
     <asset>
         <mesh name="Pelvis_link" file="Pelvis_link2.STL" scale="0.001 0.001 0.001"/>
         <mesh name="HipRoll_R_link" file="HipRoll_R_link.STL" />
@@ -54,7 +50,7 @@
     <worldbody>
         <geom name="ground" type="plane" pos="0 0 0" size="10 10 .05" rgba="0.7 0.6 0.5 1" material="MatPlane2" group="3"/>
         <light directional="true" diffuse=".8 .8 .8" pos="0 0 10" dir="0 0 -10"/>
-        <light directional="true" diffuse=".3 .3 .3" pos="10 -10 5" dir="-10 10 -5"/>
+        <light directional="true" diffuse=".5 .5 .5" pos="10 0 0" dir="-10 0 0"/>
 
         <body name="base_link">
             <joint name="virtual_joint" type="free" limited='false' frictionloss="0" damping="0" stiffness="0" armature="0"/>
@@ -186,9 +182,6 @@
                     <geom class="cls" size="0.05 0.05 0.03" pos="0.02 0 0" type="box"/>
                     <geom class="cls" size="0.045 0.05 0.0455" pos="-0.02 0 0" type="box"/>
                     <body name="Upperbody_Link" pos="0 0 0">
-                        <!--
-                        <inertial pos="-0.07294 0 0.16798" quat="0.999909 -0.000268355 -0.0135223 5.11667e-05" mass="18.1338" diaginertia="0.563198 0.563198 0.563198" />
-                        -->
                         <inertial pos="-0.07294 0 0.16798" quat="0.999909 -0.000268355 -0.0135223 5.11667e-05" mass="18.1338" diaginertia="0.563198 0.563198 0.563198" />
                         <joint name="Upperbody_Joint" pos="0 0 0" axis="-1 0 0" limited="true" range="-2.094 2.094" class="shg25_100_2so"/>
                         <geom class="viz" rgba="0.85938 0.07813 0.23438 1" mesh="upperbody" />
@@ -309,7 +302,7 @@
                                                     <geom class="viz" rgba="0.20313 0.20313 0.20313 1" mesh="R_wrist1" />
                                                     <geom size="0.02 0.03" pos="0 -0.046 0" type="cylinder" class="cls" />
                                                     <body name="R_Wrist2_Link" pos="0 -0.046 0" quat="0 0 0.707107 0.707107">
-                                                        <inertial pos="0.00063 -0.0636 0.00178" quat="0.5 0.5 -0.5 0.5" mass="0.1" fullinertia="0.000865450 0.000696917 0.015377823 0 0 0" />
+                                                        <inertial pos="0.00063 -0.0636 0.00178" mass="0.1" fullinertia="0.000865450 0.000696917 0.015377823 0 0 0" />
                                                         <joint name="R_Wrist2_Joint" pos="0 0 0" axis="0 -1 0" limited="true" range="-2.094 2.094" class="csf_11_100_2xh_f"/>
                                                         <geom size="0.03 0.03 0.01" pos="0 0 -0.025" type="box" class="cls" />
                                                         <geom size="0.03 0.03 0.01" pos="0 0 -0.025" type="box" class="viz" rgba="0.20313 0.20313 0.20313 1" />
@@ -327,18 +320,7 @@
             </body>
         </body>
 
-        <body pos="0 0 0" quat="1 0 0 0">
-            <freejoint/>
-            <geom class="object1" pos="0.0 0.0 0" quat="1 0 0 0" mass="1000.5"/>
-        </body>
-
-        <body pos="0 0 0" quat="1 0 0 0">
-            <freejoint/>
-            <geom class="object1" pos="0.0 0.0 0" quat="1 0 0 0" mass="1000.5"/>
-        </body>
-
     </worldbody>
-
     <actuator>
         <motor name="L_HipYaw_Motor" joint="L_HipYaw_Joint" ctrlrange="-333 333"/>
         <motor name="L_HipRoll_Motor" joint="L_HipRoll_Joint" ctrlrange="-232 232"/>
@@ -424,24 +406,20 @@
 								-0.3 -0.3 -1.5 1.27 1 0 1 0"
                                 /-->
 
-        <key name="front" time="0" qpos ="0.00 0 0.9083 1 0 0 0 
-								0.0 0.0 -0.36 0.77 -0.41 0.0 
-								0.0 0.0 -0.36 0.77 -0.41 0.0
+        <key name="front" time="0" qpos ="0 0 0.92983 1 0 0 0 
+								0.0 0.0 -0.24 0.6 -0.36 0.0 
+								0.0 0.0 -0.24 0.6 -0.36 0.0
 								0 0 0
-								 0.3  0.3  1.5 -1.27 -1 0 -1 0
+								0.3 0.3 1.5 -1.27 -1 0 -1 0
                                 0 0
-								-0.3 -0.3 -1.5  1.27  1 0  1 0
-                                -1.03  +0.15 0.049 0 0 0 1
-                                -1.03  -0.15 0.049 0 0 0 1"/> <!--down 10, up 94-->
+								-0.3 -0.3 -1.5 1.27 1 0 1 0"/>
 
         <key name="side" time="0" qpos ="0 0 0.92683 0.8660254 0 0 0.5 
-								0.0  0.1 -0.45 1.0 -0.55 -0.1 
-								0.0 -0.1 -0.45 1.0 -0.55  0.1
+								0.0 0.1 -0.45 1.0 -0.55 -0.1 
+								0.0 -0.1 -0.45 1.0 -0.55 0.1
 								0 0 0
-								 0.2  0.3  1.5 -1.27 -1 0 -1 0
+								0.2 0.3 1.5 -1.27 -1 0 -1 0
                                 0 0
-								-0.2 -0.3 -1.5  1.27  1 0  1 0
-                                0 0 0 0 0 0 1
-                                0 0 0 0 0 0 1"/>
+								-0.2 -0.3 -1.5 1.27 1 0 1 0"/>
     </keyframe>
 </mujoco>
