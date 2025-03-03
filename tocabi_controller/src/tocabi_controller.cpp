@@ -35,7 +35,6 @@ TocabiController::~TocabiController()
 void *TocabiController::Thread1() // Thread1, running with 2Khz.
 {
     // std::cout << "thread1_entered" << std::endl;
-
     volatile int rcv_time_ = 0;
     // cout << "shm_msgs:" << dc_.tc_shm_->t_cnt << endl;
     // cout << "entered" << endl;
@@ -97,7 +96,8 @@ void *TocabiController::Thread1() // Thread1, running with 2Khz.
     signalThread1 = true;
     int thread1_count = 0;
     while (!dc_.tc_shm_->shutdown)
-    {
+    {   
+        //rd_.q_desired = DyrosMath::cubicVector(rd_.control_time_, rd_.pc_time_, rd_.pc_time_ + rd_.pc_traj_time_, rd_.pc_pos_init, rd_.pc_pos_des, rd_.pc_vel_init, zero_m)
         if (dc_.triggerThread1)
         {
             dc_.triggerThread1 = false;
@@ -781,7 +781,8 @@ void *TocabiController::Thread1() // Thread1, running with 2Khz.
                     {
                         static int thread3_count = 1;
 
-                        if (thread3_count == 40)
+                        if (thread3_count == 50)
+                        //if (thread3_count == 100)
                         {
                             thread3_count = 0;
 
@@ -798,15 +799,43 @@ void *TocabiController::Thread1() // Thread1, running with 2Khz.
 #endif
 #ifdef COMPILE_TOCABI_CC
                 if ((rd_.tc_.mode > 5) && (rd_.tc_.mode < 9)) // 6,7,8
+                {
+                    RequestThread2();
+
+                    num1 = num1 + 1;
+                    try
                     {
                         my_cc.computeSlow();
                     }
+                    catch (const std::exception &e)
+                    {
+                        std::cout << "Error occured at AVATAR THREAD1" << std::endl;
+
+                        std::cerr << e.what() << '\n';
+
+                        rd_.positionControlSwitch = true;
+                    }
+
+                    num2 = num2 + 1;
+                    if (rd_.tc_.mode == 6 || rd_.tc_.mode == 7)
+                    {
+                        static int thread3_count = 1;
+
+                        if (thread3_count == 40)
+                        {
+                            thread3_count = 0;
+
+                            RequestThread3();
+                        }
+                        thread3_count++;
+                    }
+                }
 #endif
             }
             else
             {
-                WBC::SetContact(rd_, 1, 1);
-                rd_.torque_desired = WBC::ContactForceRedistributionTorque(rd_, WBC::GravityCompensationTorque(rd_));
+                //WBC::SetContact(rd_, 1, 1);
+                //rd_.torque_desired = WBC::ContactForceRedistributionTorque(rd_, WBC::GravityCompensationTorque(rd_));
             }
 
             // Send Data To thread2
@@ -985,9 +1014,17 @@ void *TocabiController::Thread3()
 /////////////////////////////////////////////
 /////////////Do something in Thread3 !!!!!!!
 #ifdef COMPILE_TOCABI_AVATAR
-               ac_.computeThread3();
+                if (rd_.tc_.mode == 11 || rd_.tc_.mode == 13)
+                {
+                    ac_.computeThread3();
+                }
 #endif
-
+#ifdef COMPILE_TOCABI_CC
+                if ((rd_.tc_.mode > 5) && (rd_.tc_.mode < 9)) // 6,7,8
+                {
+                    my_cc.computeThread3();
+                }
+#endif
                 /////////////////////////////////////////////
             }
             else

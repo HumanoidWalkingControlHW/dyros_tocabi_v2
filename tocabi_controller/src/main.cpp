@@ -117,23 +117,15 @@ int main(int argc, char **argv)
         std::cout << " CNTRL : LOWERBODY ENABLED " << std::endl;
     }
 
-    if (dc_.avatarMode)
+    if(dc_.avatarMode)
     {
         std::cout << " CNTRL : AVATAR MODE ENABLED " << std::endl;
+
     }
 
     dc_.tc_shm_->lower_disabled = lower_disable;
 
-    bool zp_load;
-    dc_.nh.param("/tocabi_controller/force_load_zp", zp_load, false);
-
-    bool ecat_report;
-    dc_.nh.param("/tocabi_controller/ecat_report",ecat_report,false);
-
-
     // std::cout << "process num : " << (int)dc_.tc_shm_->process_num << std::endl;
-    dc_.tc_shm_->force_load_saved_signal = zp_load;
-    dc_.tc_shm_->ecat_report = ecat_report;    
 
     // std::cout << "shm initialized" << std::endl;
 
@@ -157,10 +149,10 @@ int main(int argc, char **argv)
         struct sched_param param_logger;
         pthread_attr_t attrs[thread_number];
         pthread_t threads[thread_number];
-        param.sched_priority = 42 + 20;
-        param_logger.sched_priority = 30 + 20;
-        param_controller.sched_priority = 45 + 20;
-        param_st.sched_priority = 45 + 20;
+        param.sched_priority = 42 + 50;
+        param_logger.sched_priority = 41 + 50;
+        param_controller.sched_priority = 45 + 50;
+        param_st.sched_priority = 45 + 50;
         cpu_set_t cpusets[thread_number];
 
         if (dc_.simMode)
