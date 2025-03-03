@@ -834,8 +834,8 @@ void *TocabiController::Thread1() // Thread1, running with 2Khz.
             }
             else
             {
-                //WBC::SetContact(rd_, 1, 1);
-                //rd_.torque_desired = WBC::ContactForceRedistributionTorque(rd_, WBC::GravityCompensationTorque(rd_));
+                WBC::SetContact(rd_, 1, 1);
+                rd_.torque_desired = WBC::ContactForceRedistributionTorque(rd_, WBC::GravityCompensationTorque(rd_));
             }
 
             // Send Data To thread2
